@@ -1,6 +1,10 @@
 ---
 title: "R Notebook"
-output: html_notebook
+output:
+  html_document:
+    df_print: paged
+  html_notebook: default
+  pdf_document: default
 ---
 
 ```{r}
@@ -15,7 +19,7 @@ suppressPackageStartupMessages({
 
 Load the data
 ```{r}
-data <- read.csv("data/SHS Language_May 1, 2023_14.19.csv", sep=",")
+data <- read.csv("data/SHS Language_May 9, 2023_05.55.csv", sep=",")
 ```
 
 Clean up table
@@ -51,13 +55,18 @@ colnames(data) <- c("StartDate", "EndDate", "Status", "IPAddress", "Progress", "
 Filter data
 ```{r}
 # minimum duration (in seconds)
-min_duration <- 270
+min_duration <- 240
 # up to which question should the survey be filled
 full_upto <- "diver3"
-english <- c
+english <- c("Native/Bilingual",
+             "Proficient (can express most ideas without hesitation, but not on all the complex subjects)",
+             "Fluent (can use language flexibly and effectively for social, academic and professional purposes)",
+             "Conversational (can communicate on everyday topics, but can’t write clear detailed texts)")
 
+data$Duration <- as.numeric(data$Duration)
 data <- data[data$Duration>min_duration, ]
 data <- data[rowSums(data[, str_detect(colnames(data), full_upto)] == "") == 2, ]
+data <- data[data$english %in% english,]
 ```
 
 Transform answers to numerical values
@@ -103,6 +112,7 @@ data$emis = rowSums(dplyr::select(data, matches("emis")), na.rm=TRUE)
 data$milk = rowSums(dplyr::select(data, matches("milk")), na.rm=TRUE)
 data$diver = rowSums(dplyr::select(data, matches("diver")), na.rm=TRUE)
 data$envir = rowSums(data[,c("emis", "milk", "diver")], na.rm=TRUE)
+data$envir_pers = rowSums(data[,c("emis3", "milk3", "diver3")])
 
 # center the values based on the response scale
 data$mrat = rowMeans(dplyr::select(data, matches("m_|f_|x_")), na.rm=TRUE)
@@ -133,7 +143,7 @@ is.nan.data.frame <- function(x) {
 data[is.nan(data)] <- NA
 ```
 
-```{r}
+```{r
 hist(data$power, breaks=30)
 hist(data$univers, breaks=30)
 hist(data$achieve, breaks=30)
@@ -153,13 +163,13 @@ PCA based on values
 ```{r}
 pca_values <- prcomp(na.omit(data[, c("power1", "univers1", "achieve1", "secur1", "conform1", "benev1",
                               "power2", "univers2", "achieve2", "secur2", "conform2", "benev2", "univers3")]), scale=TRUE)
-fviz_pca_ind(pca_values, label="none")
+fviz_pca_ind(pca_values, label="none", title="PCA, human values scale")
 ```
 
 PCA based on attitudes
 ```{r}
 pca_envir <- prcomp(na.omit(data[, c("milk1", "emis1", "diver1", "milk2", "emis2", "diver2", "milk3", "emis3", "diver3")]), scale=TRUE)
-fviz_pca_ind(pca_envir, label="none", col.ind = log(as.numeric(data$Duration)))
+fviz_pca_ind(pca_envir, label="none", title="PCA, environmental attitudes")
 ```
 
 
@@ -171,21 +181,45 @@ ggplot(data, aes(x=gender, y=envir))+
 
 
 ```{r}
+ggplot(data, aes(x=framing, y=envir))+
+  geom_boxplot()
+```
+
+
+```{r
 ggplot(data, aes(x=framing, y=emis))+
   geom_boxplot()
+ggplot(data, aes(x=framing, y=emis1))+
+  geom_boxplot()
+ggplot(data, aes(x=framing, y=emis2))+
+  geom_boxplot()
+ggplot(data, aes(x=framing, y=emis3))+
+  geom_boxplot()
 ```
 
-```{r}
+```{r
 ggplot(data, aes(x=framing, y=milk))+
   geom_boxplot()
-```
-
-```{r}
-ggplot(data, aes(x=framing, y=diver))+
+ggplot(data, aes(x=framing, y=milk1))+
+  geom_boxplot()
+ggplot(data, aes(x=framing, y=milk2))+
+  geom_boxplot()
+ggplot(data, aes(x=framing, y=milk3))+
   geom_boxplot()
 ```
 
-```{r}
+```{r
+ggplot(data, aes(x=framing, y=diver))+
+  geom_boxplot()
+ggplot(data, aes(x=framing, y=diver1))+
+  geom_boxplot()
+ggplot(data, aes(x=framing, y=diver2))+
+  geom_boxplot()
+ggplot(data, aes(x=framing, y=diver3))+
+  geom_boxplot()
+```
+
+```{r
 ggplot(data, aes(x=univers, y=envir))+
   geom_point()+
   geom_smooth(method='lm', formula='y~x')
@@ -208,31 +242,48 @@ ggplot(data, aes(x=univers, y=emis3))+
   geom_point()+
   geom_smooth(method='lm', formula='y~x')
 ```
-
-
 ```{r}
-ggplot(data, aes(x=power, y=envir, color=framing))+
-  geom_point()+
-  geom_smooth(method='lm', formula='y~x')
-ggplot(data, aes(x=univers, y=envir, color=framing))+
-  geom_point()+
-  geom_smooth(method='lm', formula='y~x')
-ggplot(data, aes(x=achieve, y=envir, color=framing))+
-  geom_point()+
-  geom_smooth(method='lm', formula='y~x')
-ggplot(data, aes(x=secur, y=envir, color=framing))+
-  geom_point()+
-  geom_smooth(method='lm', formula='y~x')
-ggplot(data, aes(x=conform, y=envir, color=framing))+
-  geom_point()+
-  geom_smooth(method='lm', formula='y~x')
-ggplot(data, aes(x=benev, y=envir, color=framing))+
-  geom_point()+
+ggplot(data, aes(x=univers, y=envir))+
+  geom_point(aes(color=framing))+
   geom_smooth(method='lm', formula='y~x')
 ```
 
 
 ```{r}
+ggplot(data, aes(x=power, y=envir, color=framing))+
+  geom_point()+
+  geom_smooth(method='lm', formula='y~x')+
+  facet_wrap("framing")+
+  theme(legend.position = "none")
+ggplot(data, aes(x=univers, y=envir, color=framing))+
+  geom_point()+
+  geom_smooth(method='lm', formula='y~x')+
+  facet_wrap("framing")+
+  theme(legend.position = "none")
+ggplot(data, aes(x=achieve, y=envir, color=framing))+
+  geom_point()+
+  geom_smooth(method='lm', formula='y~x')+
+  facet_wrap("framing")+
+  theme(legend.position = "none")
+ggplot(data, aes(x=secur, y=envir, color=framing))+
+  geom_point()+
+  geom_smooth(method='lm', formula='y~x')+
+  facet_wrap("framing")+
+  theme(legend.position = "none")
+ggplot(data, aes(x=conform, y=envir, color=framing))+
+  geom_point()+
+  geom_smooth(method='lm', formula='y~x')+
+  facet_wrap("framing")+
+  theme(legend.position = "none")
+ggplot(data, aes(x=benev, y=envir, color=framing))+
+  geom_point()+
+  geom_smooth(method='lm', formula='y~x')+
+  facet_wrap("framing")+
+  theme(legend.position = "none")
+```
+
+
+```{r
 data %>%
   mutate(high_secur = secur>median(secur)) %>%
   ggplot(aes(x=framing, y=envir, color=high_secur))+
@@ -260,7 +311,7 @@ data %>%
 ```
 
 
-```{r}
+```{r
 model_power <- lm(envir ~ power*framing, data=data)
 model_univers <- lm(envir ~ univers*framing, data=data)
 model_achieve <- lm(envir ~ achieve*framing, data=data)
@@ -270,24 +321,27 @@ model_benev <- lm(envir ~ benev*framing, data=data)
 ```
 
 ```{r}
-model_power <- lm(diver ~ power*framing, data=data)
-model_univers <- lm(diver ~ univers*framing, data=data)
-model_achieve <- lm(diver ~ achieve*framing, data=data)
-model_secur <- lm(diver ~ secur*framing, data=data)
-model_conform <-lm(diver ~ conform*framing, data=data)
-model_benev <- lm(diver ~ benev*framing, data=data)
+model_univers <- lm(envir ~ univers*framing, data=data)
+summary(model_univers)
 ```
 
 ```{r}
-model_power <- lm(milk ~ power*framing, data=data)
-model_univers <- lm(milk ~ univers*framing, data=data)
-model_achieve <- lm(milk ~ achieve*framing, data=data)
-model_secur <- lm(milk ~ secur*framing, data=data)
-model_conform <-lm(milk ~ conform*framing, data=data)
-model_benev <- lm(milk ~ benev*framing, data=data)
+summary(aov(envir ~ framing, data=data))
 ```
 
 ```{r}
+t.test(envir ~ framing, data=data[data$framing != "harm",])
+t.test(envir ~ framing, data=data[data$framing != "pure",])
+```
+
+
+```{r}
+t.test(envir ~ gender, data=data[data$gender %in% c("Male", "Female"),])
+```
+
+
+
+```{r
 summary(model_power)
 summary(model_univers)
 summary(model_achieve)
